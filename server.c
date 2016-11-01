@@ -10,7 +10,7 @@ bool waitLogin(int inFd, int outFd, char* username, UserRights* rights);
 char** readCommand(int inFd, int outFd);
 void execCommand(char** command, int outFd, char* username, UserRights rights);
 
-void clientMain(int inFd, int outFd){
+void serverMain(int inFd, int outFd){
     UserRights userRights = 0;
     char username[256];
 

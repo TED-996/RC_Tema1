@@ -1,10 +1,9 @@
 #ifndef RCT1_IPC_H
 #define RCT1_IPC_H
 
-typedef enum FdType {FIFO, PIPE, SOCKET} FdType;
-const char* fdNames {"fifo", "pipe", "socket"};
+typedef enum ChannelType {FIFO, PIPE, SOCKET} ChannelType;
+const char* const channelNames {"fifo", "pipe", "socket"};
 
-bool openFd(FdType type, int* result);
-
+bool openChannel(ChannelType type, int* result);
 
 #endif

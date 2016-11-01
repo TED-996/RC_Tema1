@@ -12,26 +12,26 @@
 int getFifoName(char* buffer);
 
 
-bool openFd(FdType type, int* result){
+bool openChannel(ChannelType type, int* result){
 	if (type == FIFO){
 		char name[300];
 		getFifoName(name1)
 		if (mkfifo(name, 0666) == 0){
-			perror("Error creating FIFO.")
+			perror("creating FIFO")
 			return false;
 		}
 
 		result[0] = open(name, O_RDONLY | O_NONBLOCK);
 		
 		if (result[0] == -1){
-			perror("Error opening FIFO read end.");
+			perror("opening FIFO read end");
 			return false;
 		}
 
 		result[1] = open(name, O_WRONLY);
 		
 		if (result[1] == -1){
-			perror("Error opening FIFO write end.");
+			perror("opening FIFO write end");
 			return false;
 		}
 

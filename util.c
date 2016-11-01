@@ -241,3 +241,37 @@ bool getRandom(char* buffer, int nrBytes){
     }
     return true;
 }
+
+
+int spawnVoidPtr(int (*childMain)(void*), void* parameter){
+	int childPid = fork();
+	if (childPid == -1){
+		return -1;
+	}
+	if (childPid != 0){
+		return childPid;
+	}
+	else{
+		int retcode = childMain(parameter);
+        exit(retcode);
+	}
+}
+
+int spawn2Channel(int (*childMain)(int, int), int* inChannel, int* outChannel){
+	int childPid = fork();
+	if (childPid == -1){
+		return -1;
+	}
+	if (childPid != 0){
+		return childPid;
+	}
+	else{
+        if (close(inChannel[1]) != 0 || close(outChannel[0]) != 0){
+            perror("preparing channels for child process");
+            exit(1);
+        }
+
+		int retcode = childMain(inChannel[0], outChannel[1]);
+        exit(retcode);
+	}
+}
