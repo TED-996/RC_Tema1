@@ -8,6 +8,7 @@ const char** readCommandChunks(int* nrChunks);
 const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs);
 
 
+
 int clientMain(int inFd, int outFd){
 	printf("Connected.\n")
 
@@ -26,10 +27,17 @@ int clientMain(int inFd, int outFd){
 
 			close(inFd);
 			close(outFd);
-			exit(20);
+			exit(30);
 		}
 
-		sendCommand(args, nrArgs, outFd);
+		if (!sendCommand(args, nrArgs, outFd)){
+			perror("sending command to server");
+
+			close(inFd);
+			close(outFd);
+			exit(21);
+		}
+
 		free2d(args, nrArgs);
 
 		printResponse(inFd);
@@ -45,12 +53,12 @@ int clientMain(int inFd, int outFd){
 }
 
 
-const char** readCommandChunks(int* nrArgs){
+const char** readCommandChunks(int* nrChunks){
 	printf("> ");
 
 	const int chunkSize = 256;
 	char** result = NULL;
-	*nrArgs = 0;
+	*nrChunks = 0;
 
 	bool done = false;
 
@@ -72,14 +80,14 @@ const char** readCommandChunks(int* nrArgs){
 			done = true;
 		}
 
-		if (strlen(thisChunk) == 0 && nrArgs != 0){
+		if (strlen(thisChunk) == 0 && *nrChunks != 0){
 			free(thisChunk);
 			done = true;
 		}
 		else{
-			nrArgs++;
-			realloc(result, sizeof(char*) * nrArgs);
-			result[nrArgs - 1] = thisChunk;
+			*nrChunks++;
+			result = realloc(result, sizeof(char*) * *nrChunks);
+			result[*nrChunks - 1] = thisChunk;
 		}
 
 	}
@@ -88,13 +96,113 @@ const char** readCommandChunks(int* nrArgs){
 }
 
 
-const char* emptyArgs = [ "" ];
+bool isWhitespace(char ch);
+char* chrNext(const char** chunks, char* ptr, int* chunkIdx);
+char* newChunkedSubstr(const char** chunks, char* startPtr, int startChunk, char* endPtr, int endChunk);
 
 const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs){
 	char** args = NULL:
 	if (nrChunks == 1 && strlen(commandChunks[0]) == 0){
-		return emptyArgs;
+		args = malloc(sizeof(char*));
+		args[0] = malloc(sizeof(char));
+		args[0][0] = '\0';
+
+		return args;
 	}
 
+	int chunkIdx = 0;
+	char* chrPtr = commandChunks[0];
 	
+	bool inWord = 0;
+	char* argStart;
+	int chunkStart;
+	char separator = '\0';
+	while (chunkIdx != nrChunks || *chrPtr != '\0'){
+		if (!inWord){
+			if (!isWhitespace(*chrPtr)){
+				inWord = true;
+
+				if (*chrPtr == '"' || *chrPtr == '\''){
+					separator = *chrPtr;
+					chunkStart = chunkIdx;
+					argStart = chrNext(commandChunks, chrPtr, &chunkStart);
+				}
+				else{
+					separator = '\0';
+					chunkStart = chunkIdx;
+					argStart = chrPtr;
+				}	
+			}
+		}
+		else{
+			if ((separator != '\0' && *chrPtr == separator) || (separator == '\0' && isWhitespace(chrPtr))){
+				char* newArg = newChunkedSubstr(commandChunks, argStart, chunkStart, chrPtr, chunkIdx);
+				if (newArg == NULL){
+					perror("splitting command into arguments");
+					
+					free2d(args, nrArgs);
+					return NULL;
+				}
+				
+				*nrArgs++;
+				args = realloc(args, sizeof(char*) * *nrArgs);
+				args[*nrArgs - 1] = newArg;
+			}
+		}
+
+		chrPtr = chrNext(commandChunks, chrPtr, &chunkStart);
+	}
+}
+
+char* chrNext(const char** chunks, char* ptr, int* chunkIdx){
+	ptr++;
+	if (*ptr == '\0'){
+		*chunkIdx++;
+		return chunks[chunkIdx];
+	}
+	return ptr;
+}
+
+bool isWhitespace(char ch){
+	return ch == ' ' || ch == '\t' || ch == '\v' || ch == '\n' || ch == '\r';
+}
+
+char* newChunkedSubstr(const char** chunks, char* startPtr, int startChunk, char* endPtr, int endChunk){
+	result = NULL;
+	if (startChunk == endChunk){
+		if (endPtr < startPtr){
+			return NULL;
+		}
+
+		result = malloc(endPtr - startPtr + 1);
+		strncpy(result, startPtr, endPtr - startPtr);
+		result[endPtr - startPtr] = '\0';
+
+		return result;
+	}
+
+	int length = strlen(startPtr);
+	int chunkIdx = startChunk + 1;
+
+	while(chunkIdx != endChunk){
+		length += strlen(chunks[chunkIdx]);
+	}
+	length += endPtr - chunks[endChunk];
+
+	result = malloc(length + 1);
+	if (result == NULL){
+		return NULL;
+	}
+
+	strcpy(result, startPtr);
+	chunkIdx = startChunk + 1;
+
+	while(chunkIdx != endChunk){
+		strcat(result, chunks[chunkIdx]);
+	}
+	strncat(result, chunks[endChunk], endPtr - chunks[endChunk]);
+	result[length] = '\0';
+
+	return result;
+
 }

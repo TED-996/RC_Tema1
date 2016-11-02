@@ -223,6 +223,10 @@ int bufcmp(const void* buf1, int len1, const void* buf2, int len2){
 
 
 void free2d(void** data, int len){
+    if (data == NULL){
+        return;
+    }
+
     for (int i = 0; i < len; i++){
         free(data[i]);
     }
