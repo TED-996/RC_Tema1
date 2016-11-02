@@ -1,33 +1,33 @@
 #include<unistd.h>
 #include<stdin.h>
 #include<stdlib.h>
+#include<strings.h>
 
 #include "util.h"
 #include "login.h"
 
 
-bool waitLogin(int inFd, int outFd, char* username, UserRights* rights);
 char** readCommand(int inFd, int outFd, int* nrArgs);
-void execCommand(char** command, int nrArgs, int outFd, char* username, UserRights rights);
+bool execCommand(char** command, int nrArgs, int outFd, UserRights* &rights);
 
 int serverMain(int inFd, int outFd){
     UserRights userRights = 0;
-    char username[256];
-
-    if (!waitLogin(inFd, outFd, username, &UserRights)){
-        close(inFd);
-        close(outFd);
-        return;
-    }
 
     char welcomeStr[300];
-    snprintf(welcomeStr, 300, "Welcome %s!\nWaiting for commands.", username);
+    snprintf(welcomeStr, 300, "Welcome!\nWaiting for commands.");
     writeSizedStr(outFd, welcomeStr);
 
     int nrArgs;    
     char** command = readCommand(inFd, outFd, &nrArgs);
     while(command != NULL){
-        execCommand(command, nrArgs, outFd, username, rights);
+        if (!execCommand(command, nrArgs, outFd, &rights)){
+            perror("executing command");
+            
+            close(intFd);
+            close(outFd);
+
+            exit(10);
+        }
 
         free2d(command, nrArgs);
         command = readCommand(inFd, outFd, &nrArgs);
@@ -36,40 +36,6 @@ int serverMain(int inFd, int outFd){
     close(intFd);
     close(outFd);
     return 0;
-}
-
-
-bool waitLogin(int inFd, int outFd, char* username, UserRights* rights){
-    char password[256];
-
-    while(True){
-        int readResult = readSizedStr(inFd, username, 256);
-        if (readResult < 0){
-            perror("Error reading username.");
-            return false;
-        }
-        if (readResult == 0){
-            printf("Login aborted, client shutting down.");
-            return false;
-        }
-        
-        readResult = readSizedStr(inFd, password, 256);
-        if (readResult < 0){
-            perror("Error reading password.");
-            return false;
-        }
-        if (readResult == 0){
-            printf("Login aborted, client shutting down.");
-            return false;
-        }
-
-        if (checkLogin(username, password, rights)){
-            return true;
-        }
-    }
-
-    //Never gets here, but aaaanyway.
-    return false;
 }
 
 
@@ -98,6 +64,124 @@ char** readCommand(int inFd, int outFd, int* nrArgs){
     return result;
 }
 
-void execCommand(char** command, int outFd, char* username, UserRights rights){
-    //TODO
+
+void execLogin(char** command, int nrArgs, int outFd, UserRights* rights);
+void execRegister(char** command, int nrArgs, int outFd, UserRights* rights);
+
+bool execCommand(char** command, int nrArgs, int outFd, UserRights* rights){
+    if (nrArgs == 0){
+        perror("there should never be 0 arguments");
+        return false;
+    }
+
+    if (nrArgs == 1 && command[0][0] == '\0'){
+        writeSizedStr(outFd, "\n");
+        writeSizedStr(outFd, "");
+        return true;
+    }
+
+    if (strcmp(command[0], "login") == 0){
+        execLogin(command, nrArgs, outFd, rights);
+        return;
+    }
+
+    if (strcmp(command[0], "register") == 0){
+        execRegister(command, nrArgs, outFd, rights);
+        return;
+    }
+}
+
+
+void execLogin(char** command, int nrArgs, int outFd, UserRights* rights){
+    if (nrArgs != 3){
+        writeSizedStr(outFd, "Invalid arguments.\nUsage: login username password\n");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    if (strlen(command[1]) == 0 || strlen(command[1]) > 255){
+        writeSizedStr(outFd, "Username invalid.");
+        writeSizedStr(outFd, "");
+        return;
+    }
+    if (strlen(command[2]) == 0 || strlen(command[2]) > 255){
+        writeSizedStr(outFd, "Password invalid.");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    if (!checkLogin(command[1], command[2], rights)){
+        writeSizedStr(outFd, "Username + password combination invalid.");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    char welcomeStr[300];
+    snprintf(welcomeStr, 300, "Welcome %s!\n", command[1]);
+
+    writeSizedStr(outFd, welcomeStr);
+    writeSizedStr(outFd, "");
+}
+
+
+void execRegister(char** command, int nrArgs, int outFd, UserRights* rights){
+    if (!(*rights & RightRegister)){
+        writeSizedStr(outFd, "Insufficient rights.");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    if (nrArgs != 4){
+        writeSizedStr(outFd, "Invalid arguments.\nUsage: register username password rights\n");
+        writeSizedStr(outFd, "\trights: {r}{l}{p}{s} (register, limited, protected, sudo)\n");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    if (strlen(command[1]) == 0 || strlen(command[1]) > 255){
+        writeSizedStr(outFd, "Username invalid.");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    if (strlen(command[2]) == 0 || strlen(command[2]) > 255){
+        writeSizedStr(outFd, "Password invalid.");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    UserRights newRights = 0;
+
+    if (strchr(command[3], 'r')){
+        newRights |= RightRegister;
+    }
+    if (strchr(command[3], 'l')){
+        newRights |= RightSysCmd;
+    }
+    if (strchr(command[3], 'p`')){
+        newRights |= RightSysCmd;
+    }
+    if (strchr(command[3], 's')){
+        newRights |= RightSudo;
+    }
+
+    for (int i = 0; i < 32; i++){
+        if (newRights & (1 << i) && !(*rights & (1 << i))){
+            writeSizedStr(outFd, "You cannot give rights you don't own.");
+            writeSizedStr(outFd, "");
+            return;
+        }
+    }
+    
+    if (!register(command[1], command[2], newRights)){
+        writeSizedStr(outFd, "Could not register user.");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    char resultStr[300];
+    snprintf(resultStr, 300, "User %s registered.\n", command[1]);
+
+    writeSizedStr(outFd, resultStr);
+    writeSizedStr(outFd, "");
 }

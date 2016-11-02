@@ -11,9 +11,20 @@ bool printResponse(int inFd);
 
 
 int clientMain(int inFd, int outFd){
-	printf("Connected.\n")
+	char* welcomeMessage;
+	if (allocReadSizedStr(inFd, &welcomeMessage) <= 0){
+		perror("reading welcome message");
+		
+		close(inFd);
+		close(outFd);
+		exit(20);
+	}
 
+	printf("Connected.\n")
 	printf("You should login first (command: login {username})\n");
+
+	printf("%s", welcomeMessage);
+	free(welcomeMessage);
 
 	int nrChunks;
 	char** commandChunks = readCommandChunks(&nrChunks);
