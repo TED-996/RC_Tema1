@@ -133,7 +133,7 @@ int writeSizedBuffer(int fd, const unsigned char* buffer, int size){
 
 
 int writeSizedStr(int fd, char* buffer){
-    return writeSizedStr(fd, buffer, strlen(buffer));
+    return writeSizedBuffer(fd, buffer, strlen(buffer));
 }
 
 

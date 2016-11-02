@@ -6,7 +6,8 @@
 
 const char** readCommandChunks(int* nrChunks);
 const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs);
-
+bool sendCommandToServer(char** args, int nrArgs, int outFd);
+bool printResponse(int inFd);
 
 
 int clientMain(int inFd, int outFd){
@@ -37,10 +38,15 @@ int clientMain(int inFd, int outFd){
 			close(outFd);
 			exit(21);
 		}
-
 		free2d(args, nrArgs);
 
-		printResponse(inFd);
+		if (!printResponse(inFd)){
+			perror("printing response from server");
+
+			close(inFd);
+			close(outFd);
+			exit(22);
+		}
 
 		commandChunks = readCommandChunks(&nrChunks);
 	}
@@ -205,4 +211,39 @@ char* newChunkedSubstr(const char** chunks, char* startPtr, int startChunk, char
 
 	return result;
 
+}
+
+bool sendCommandToServer(char** args, int nrArgs, int outFd){
+	if (write(outFd, &nrArgs, 4) != 4){
+		perror("writing argument count");
+		return false;
+	}
+
+	for (int i = 0; i < nrArgs; i++){
+		if (writeSizedStr(outFd, args[i]) != strlen(args)){
+			perror("sending argument");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool printResponse(bool inFd){
+	while(true){
+		char* response;
+		int respLen = allocReadSizedStr(inFd, &response);
+
+		if (respLen < 0){
+			perror("reading response from server");
+			return false;
+		}
+
+		if (respLen == 0){
+			return true;
+		}
+
+		printf("%s", response);
+		free(response);
+	}
 }
