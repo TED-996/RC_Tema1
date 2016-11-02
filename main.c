@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <strings.h>
+#include <sys/wait.h>
 
 #include "ipc.h"
 #include "util.h"
+#include "client.h"
 
 
 int main(int argc, char* argv){
@@ -38,10 +40,21 @@ int main(int argc, char* argv){
 	}
 
 	printf("Booting up server...\n");
-	int serverPid = spawn2Channel(commandChannel, responseChannel);
+	int serverPid = spawnSplitChannels(serverMain, commandChannel, responseChannel);
 
 	int outFd = commandChannel[1];
 	int inFd = responseChannel[0];
 
-	runClient(inFd, outFd);
+	int retcode = runClient(inFd, outFd);
+
+	printf("Waiting to close server...\n");
+
+	if (wait(NULL) == -1){
+		perror("waiting for server process to shut down...");
+		exit(11);
+	}
+
+	printf("Done.\n");
+
+	return retcode;
 }

@@ -7,14 +7,16 @@
 
 
 bool waitLogin(int inFd, int outFd, char* username, UserRights* rights);
-char** readCommand(int inFd, int outFd);
-void execCommand(char** command, int outFd, char* username, UserRights rights);
+char** readCommand(int inFd, int outFd, int* nrArgs);
+void execCommand(char** command, int nrArgs, int outFd, char* username, UserRights rights);
 
-void serverMain(int inFd, int outFd){
+int serverMain(int inFd, int outFd){
     UserRights userRights = 0;
     char username[256];
 
     if (!waitLogin(inFd, outFd, username, &UserRights)){
+        close(inFd);
+        close(outFd);
         return;
     }
 
@@ -22,13 +24,18 @@ void serverMain(int inFd, int outFd){
     snprintf(welcomeStr, 300, "Welcome %s!\nWaiting for commands.", username);
     writeSizedStr(outFd, welcomeStr);
 
-    char** command = readCommand(inFd, outFd);
+    int nrArgs;    
+    char** command = readCommand(inFd, outFd, &nrArgs);
     while(command != NULL){
-        execCommand(command, outFd, username, rights);
+        execCommand(command, nrArgs, outFd, username, rights);
 
-        free2d(command);
-        command = readCommand(inFd, outFd);
+        free2d(command, nrArgs);
+        command = readCommand(inFd, outFd, &nrArgs);
     }
+
+    close(intFd);
+    close(outFd);
+    return 0;
 }
 
 
@@ -66,11 +73,10 @@ bool waitLogin(int inFd, int outFd, char* username, UserRights* rights){
 }
 
 
-char** readCommand(int inFd, int outFd){
+char** readCommand(int inFd, int outFd, int* nrArgs){
     char** result = NULL;
 
-    int nrArgs;
-    int bytesRead = read(inFd, &nrArgs, 4);
+    int bytesRead = read(inFd, nrArgs, 4);
     if (bytesRead != 4){
         return NULL;
     }

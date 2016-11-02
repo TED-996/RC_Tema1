@@ -37,7 +37,7 @@ int readStr(int fd, char* buffer, int bufSize){
 }
 
 
-int writeStr(int fd, char* str){
+int writeStr(int fd, const char* str){
     char* ptr = str;
     int len = strlen(str);
 
@@ -111,7 +111,7 @@ int readSizedStr(int fd, char* buffer, int bufSize){
 }
 
 
-int writeSizedBuffer(int fd, unsigned char* buffer, int size){
+int writeSizedBuffer(int fd, const unsigned char* buffer, int size){
     int bytesWritten = write(fd, &size, 4);
     if (bytesWritten < 0){
         return bytesWritten;
@@ -202,7 +202,7 @@ int allocReadSizedStr(int fd, char** dst){
 }
 
 
-int bufcmp(void* buf1, int len1, void* buf2, int len2){
+int bufcmp(const void* buf1, int len1, const void* buf2, int len2){
     if (len1 != len2){
         return len1 - len2;
     }
@@ -257,12 +257,16 @@ int spawnVoidPtr(int (*childMain)(void*), void* parameter){
 	}
 }
 
-int spawn2Channel(int (*childMain)(int, int), int* inChannel, int* outChannel){
+int spawnSplitChannels(int (*childMain)(int, int), int* inChannel, int* outChannel){
 	int childPid = fork();
 	if (childPid == -1){
 		return -1;
 	}
 	if (childPid != 0){
+        if (close(inChannel[0]) != 0 || close(outChannel[1]) != 0){
+            perror("preparing channels for parent process");
+        }
+
 		return childPid;
 	}
 	else{
