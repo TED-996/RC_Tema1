@@ -261,6 +261,38 @@ int spawnVoidPtr(int (*childMain)(void*), void* parameter){
 	}
 }
 
+
+int execChild(char** arguments, int nrArgs, int* stdoutChannel){
+	int childPid = fork();
+	if (childPid == -1){
+		return -1;
+	}
+	if (childPid != 0){
+		close(stdoutChannel[1]);
+
+        return childPid;
+	}
+	else{
+		dup2(1, stdoutChannel[1]);
+        close(stdoutChannel[0]);
+        close(stdoutChannel[1]);
+
+        dup2(2, 1);
+        
+        char** arguments2 = new(nrArgs * sizeof(char*));
+        for (int i = 1; i < nrArgs; i++){
+            arguments2[i - 1] = arguments[i];
+        }
+        arguments2[nrArgs - 1] = NULL;
+
+        if (execvp(arguments[0], arguments2) == -1){
+            perror("executing child process");
+            exit(10);
+        }
+	}
+}
+
+
 int spawnSplitChannels(int (*childMain)(int, int), int* inChannel, int* outChannel){
 	int childPid = fork();
 	if (childPid == -1){

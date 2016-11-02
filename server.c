@@ -5,6 +5,7 @@
 
 #include "util.h"
 #include "login.h"
+#include "ipc.h"
 
 
 char** readCommand(int inFd, int outFd, int* nrArgs);
@@ -67,6 +68,7 @@ char** readCommand(int inFd, int outFd, int* nrArgs){
 
 void execLogin(char** command, int nrArgs, int outFd, UserRights* rights);
 void execRegister(char** command, int nrArgs, int outFd, UserRights* rights);
+void execSysCmd(char** command, int nrArgs, int outFd, UserRights* rights);
 
 bool execCommand(char** command, int nrArgs, int outFd, UserRights* rights){
     if (nrArgs == 0){
@@ -185,3 +187,45 @@ void execRegister(char** command, int nrArgs, int outFd, UserRights* rights){
     writeSizedStr(outFd, resultStr);
     writeSizedStr(outFd, "");
 }
+
+
+void execSysCmd(char** command, int nrArgs, int outFd, UserRights* rights){
+    if (!(*rights & RightSysCmd)){
+        writeSizedStr(outFd, "Insufficient rights.");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    int stdoutPipes[2];
+    if (!openChannel(Pipe, stdoutPipes)){
+        perror("opening pipe to child process");
+        return;
+    }
+
+    int childPid = execChild(command, nrArgs, stdoutPipes);
+
+    const int bufferSize = 1024;
+    char* buffer[bufferSize];
+    buffer[bufferSize - 1] = '\0';
+
+    while(true){
+        int bytesRead = read(stdoutPipes[0], buffer, bufferSize - 1);
+        if (bytesRead <= 0){
+            break;
+        }
+
+        if (writeSizedBuffer(outFd, buffer, bytesRead) != bytesRead){
+            perror("writing response to pipe");
+            break;
+        }
+    }
+    writeSizedBuffer(outFd, "\n");
+
+    if (wait(childPid) == -1){
+        perror("waiting for child process to close");
+        exit(20);
+    }
+
+    writeSizedBuffer(outFd, "");
+}
+

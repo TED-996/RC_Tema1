@@ -8,12 +8,11 @@
 #include "ipc.h"
 
 
-
 int getFifoName(char* buffer);
 
 
 bool openChannel(ChannelType type, int* result){
-	if (type == FIFO){
+	if (type == Fifo){
 		char name[300];
 		getFifoName(name1)
 		if (mkfifo(name, 0666) == 0){
@@ -40,13 +39,13 @@ bool openChannel(ChannelType type, int* result){
 		
 		return true;		
 	}
-	else if (type == PIPE){
+	else if (type == Pipe){
 		if (pipe(result) != 0){
 			return false;
 		}
 		return true;
 	}
-	else if (type == SOCKET){
+	else if (type == Socket){
 		if (socketpair(AF_UNIX, SOCK_STREAM, 0, result) != 0){
 			return false;
 		}
