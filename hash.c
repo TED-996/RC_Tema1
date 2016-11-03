@@ -16,6 +16,7 @@ void hashBuffer(void* src, int srcLen, unsigned char* dst){
             rolBuffer(dst, HashLength, 5);
             dst[HashLength - 1] ^= *srcPtr;
         }
+        roundIdx++;
     }
 
 }

@@ -109,7 +109,7 @@ bool registerUser(const char* username, const char* password, UserRights rights)
     char loginFile[4096];
     getLoginFilename(username, loginFile, 4096);
 
-    int loginFd = open(loginFile, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    int loginFd = open(loginFile, O_WRONLY | O_CREAT | O_EXCL, 0666);
     if (loginFd == -1){
         return false;
     }

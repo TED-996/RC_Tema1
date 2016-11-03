@@ -100,7 +100,7 @@ bool createRootUser(){
 			printf("\nPassword too long, try again: ");
 		}
 
-		printf("OK, write again for verification: ");
+		printf("\nOK, write again for verification: ");
 		while (!getPassword(password2, 256)){
 			printf("\nPassword too long, try again: ");
 		}
@@ -108,9 +108,10 @@ bool createRootUser(){
 		if (strcmp(password1, password2) == 0){
 			break;
 		}
-		printf("The passwords do not match, try again.\n");
+		printf("\nThe passwords do not match, try again.\n");
 	}
 
+	printf("\nRegistering...\n");
 	if (!registerUser("root", password1, (UserRights)0xFF)){
 		perror("registering root user");
 		exit(16);
