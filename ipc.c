@@ -52,7 +52,7 @@ bool openChannel(ChannelType type, int* result){
 			perror("getting FIFO flags");
 			return false;
 		}
-		if (fcntl(result[0], F_SETFD, flags & (~O_NONBLOCK)) == -1){
+		if (fcntl(result[0], F_SETFD, flags & ~(O_NONBLOCK | O_NDELAY)) == -1){
 			perror("setting FIFO to blocking");
 			return false;
 		}
