@@ -3,6 +3,7 @@
 #include<sys/types.h>
 #include<unistd.h>
 #include<string.h>
+#include<sys/stat.h>
 
 #include"login.h"
 #include"hash.h"
@@ -12,10 +13,16 @@
 const char* loginDirectory = "/rc/rct1/logins";
 
 
-bool usernameOk(char* username);
-bool getLoginFilename(char* username, char* dest, int destLen);
+bool usernameOk(const char* username);
+bool getLoginFilename(const char* username, char* dest, int destLen);
+bool ensureLoginsDirectory();
 
-bool checkLogin(char* username, char* password, UserRights* rights){
+bool checkLogin(const char* username, const char* password, UserRights* rights){
+    if (!ensureLoginsDirectory()){
+        perror("creating login directory");
+        exit(17);
+    }
+
     char loginFile[4096];
 
     if (!getLoginFilename(username, loginFile, 4096)){
@@ -50,8 +57,8 @@ bool checkLogin(char* username, char* password, UserRights* rights){
     return (memcmp(passwordHash, expectedPassword, HashLength) == 0)
 }
 
-bool usernameOk(char* username){
-    for (char* ptr = username; *ptr != '\0'; ptr++){
+bool usernameOk(const char* username){
+    for (const char* ptr = username; *ptr != '\0'; ptr++){
         if (!(
             (*ptr >= 'a' && *ptr <= 'z') ||
             (*ptr >= 'A' && *ptr <= 'Z') ||
@@ -66,7 +73,7 @@ bool usernameOk(char* username){
     return true;
 }
 
-bool getLoginFilename(char* username, char* dest, int destLen){
+bool getLoginFilename(const char* username, char* dest, int destLen){
     char* homePath = getenv("HOME");
     if (homePath == NULL){
         homePath = "/";
@@ -85,11 +92,16 @@ bool getLoginFilename(char* username, char* dest, int destLen){
 }
 
 
-bool passwordOk(char* password);
+bool passwordOk(const char* password);
 
-bool register(char* username, char* password, UserRights rights){
+bool register(const char* username, const char* password, UserRights rights){
     if (!passwordOk(password)){
         return false;
+    }
+
+    if (!ensureLoginsDirectory()){
+        perror("creating login directory");
+        exit(17);
     }
 
     char loginFile[4096];
@@ -124,12 +136,97 @@ bool register(char* username, char* password, UserRights rights){
     return true;
 }
 
-bool passwordOk(char* password){
-    for (char* ptr = password; *ptr; ptr++){
+bool passwordOk(const char* password){
+    for (const char* ptr = password; *ptr; ptr++){
         if (*ptr < 32 || *ptr == 0xFF){
             return false;
         }
     }
 
     return true;
+}
+
+
+bool usernameExists(const char* username){
+    char loginFile[4096];
+
+    if (!getLoginFilename(username, loginFile, 4096)){
+        fprintf(stderr, "Problem getting login file filename.\n");
+        return false;
+    }
+
+    struct stat statData;
+    if (stat(loginFile, &statData) == -1){
+        return false;
+    }
+    if (!S_ISREG(statData.st_mode)){
+        return false;
+    }
+    return true;
+}
+
+bool mkdirRec(char* startDir, char* nextDirs);
+
+bool ensureLoginsDirectory(){
+    char* homePath = getenv("HOME");
+    if (homePath == NULL){
+        homePath = "/";
+    }
+
+    char homePathBuffer[4096];
+    char loginDirBuffer[4096];
+    strcpy(homePathBuffer, homePath);
+    strcpy(loginDirBuffer, loginDirectory);
+
+    if (!mkdirRec(homePathBuffer, loginDirBuffer)){
+        return false;
+    }
+    return true;
+}
+
+
+char* skipChars(const char* ptr, char chr);
+
+bool mkdirRec(char* startDir, char* nextDirs){
+    if (nextDirs[0] == '\0'){
+        return true;
+    }
+
+    char* nextInPath = skipChars(nextDirs, '/');
+    char* slashIdx = strchr(nextInPath, '/');
+    if (slashIdx == NULL){
+        strcat(startDir, "/");
+        strcat(startDir, nextInPath);
+    }
+    else{
+        strcat(startDir, "/");
+        *slashIdx = '\0';
+        strcat(startDir, nextInPath);
+    }
+
+    struct stat statData;
+    if (stat(startDir, &statData) != -1){
+        if (!S_ISDIR(statData.st_mode)){
+            perror("An element parent of the requested path is not a directory!");
+            return false;
+        }
+    }
+    else{
+        if (mkdir(startDir, 0777) != 0){
+            perror("creating directory");
+            return false;
+        }
+    }
+
+    if (slashIdx != NULL){
+        return mkdirRec(startDir, slashIdx + 1);
+    }
+    return true;
+}
+
+char* skipChars(const char* ptr, char chr){
+    while(*ptr == chr){
+        ptr++;
+    }
+    return ptr;
 }

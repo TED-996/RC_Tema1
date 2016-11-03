@@ -15,10 +15,10 @@ int serverMain(int inFd, int outFd){
     UserRights userRights = 0;
 
     char welcomeStr[300];
-    snprintf(welcomeStr, 300, "Welcome!\nWaiting for commands.");
+    snprintf(welcomeStr, 300, "Welcome!\nWaiting for commands.\n");
     writeSizedStr(outFd, welcomeStr);
 
-    int nrArgs;    
+    int nrArgs;
     char** command = readCommand(inFd, outFd, &nrArgs);
     while(command != NULL){
         if (!execCommand(command, nrArgs, outFd, &rights)){
@@ -128,7 +128,7 @@ void execLogin(char** command, int nrArgs, int outFd, UserRights* rights){
 
 void execRegister(char** command, int nrArgs, int outFd, UserRights* rights){
     if (!(*rights & RightRegister)){
-        writeSizedStr(outFd, "Insufficient rights.");
+        writeSizedStr(outFd, "Insufficient rights.\n");
         writeSizedStr(outFd, "");
         return;
     }
@@ -141,42 +141,53 @@ void execRegister(char** command, int nrArgs, int outFd, UserRights* rights){
     }
 
     if (strlen(command[1]) == 0 || strlen(command[1]) > 255){
-        writeSizedStr(outFd, "Username invalid.");
+        writeSizedStr(outFd, "Username invalid.\n");
         writeSizedStr(outFd, "");
         return;
     }
 
     if (strlen(command[2]) == 0 || strlen(command[2]) > 255){
-        writeSizedStr(outFd, "Password invalid.");
+        writeSizedStr(outFd, "Password invalid.\n");
         writeSizedStr(outFd, "");
         return;
     }
 
     UserRights newRights = 0;
+    int nrRights = 0;
 
     if (strchr(command[3], 'r')){
         newRights |= RightRegister;
+        nrRights++;
     }
     if (strchr(command[3], 'l')){
         newRights |= RightSysCmd;
+        nrRights++;
     }
     if (strchr(command[3], 'p`')){
         newRights |= RightSysCmd;
+        nrRights++;
     }
     if (strchr(command[3], 's')){
         newRights |= RightSudo;
+        nrRights++;
+    }
+
+    if (strlen(command[3] != nrRights)){
+        writeSizedStr(outFd, "Invalid rights.\nUnrecognized values.\n");
+        writeSizedStr(outFd, "");
+        return;
     }
 
     for (int i = 0; i < 32; i++){
         if (newRights & (1 << i) && !(*rights & (1 << i))){
-            writeSizedStr(outFd, "You cannot give rights you don't own.");
+            writeSizedStr(outFd, "You cannot give rights you don't own.\n");
             writeSizedStr(outFd, "");
             return;
         }
     }
     
     if (!register(command[1], command[2], newRights)){
-        writeSizedStr(outFd, "Could not register user.");
+        writeSizedStr(outFd, "Could not register user.\n");
         writeSizedStr(outFd, "");
         return;
     }
@@ -191,7 +202,7 @@ void execRegister(char** command, int nrArgs, int outFd, UserRights* rights){
 
 void execSysCmd(char** command, int nrArgs, int outFd, UserRights* rights){
     if (!(*rights & RightSysCmd)){
-        writeSizedStr(outFd, "Insufficient rights.");
+        writeSizedStr(outFd, "Insufficient rights.\n");
         writeSizedStr(outFd, "");
         return;
     }
@@ -204,13 +215,16 @@ void execSysCmd(char** command, int nrArgs, int outFd, UserRights* rights){
 
     int childPid = execChild(command, nrArgs, stdoutPipes);
 
+    int inFd = stdoutPipes[0];
+    int fdFlags = fcntl(inFd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
     const int bufferSize = 1024;
     char* buffer[bufferSize];
-    buffer[bufferSize - 1] = '\0';
 
     while(true){
-        int bytesRead = read(stdoutPipes[0], buffer, bufferSize - 1);
-        if (bytesRead <= 0){
+        int bytesRead = read(inFd, buffer, bufferSize);
+        if (bytesRead == 0 || (bytesRead < 0 && errno() != EAGAIN && errno() != EWOULDBLOCK)){
             break;
         }
 
@@ -219,13 +233,13 @@ void execSysCmd(char** command, int nrArgs, int outFd, UserRights* rights){
             break;
         }
     }
-    writeSizedBuffer(outFd, "\n");
+    writeSizedStr(outFd, "\n");
 
     if (wait(childPid) == -1){
         perror("waiting for child process to close");
         exit(20);
     }
 
-    writeSizedBuffer(outFd, "");
+    writeSizedStr(outFd, "");
 }
 

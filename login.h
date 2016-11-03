@@ -1,7 +1,9 @@
 #ifndef RCT1_LOGIN_H
 #define RCT1_LOGIN_H
 
-bool checkLogin(char* username, char* password, UserRights* rights);
-bool register(char* username, char* password, UserRights rights);
+bool checkLogin(const char* username, const char* password, UserRights* rights);
+bool register(const char* username, const char* password, UserRights rights);
+
+bool usernameExists(const char* username);
 
 #endif
