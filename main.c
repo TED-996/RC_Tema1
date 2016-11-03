@@ -10,6 +10,7 @@
 #include "util.h"
 #include "client.h"
 #include "login.h"
+#include "dbg.h"
 
 
 bool createRootUser();

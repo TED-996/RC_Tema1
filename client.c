@@ -5,6 +5,7 @@
 
 #include "base.h"
 #include "util.h"
+#include "dbg.h"
 
 
 const char** readCommandChunks(int* nrChunks);
@@ -24,7 +25,7 @@ int clientMain(int inFd, int outFd){
 	}
 
 	printf("Connected.\n");
-	printf("You should login first (command: login {username})\n");
+	printf("You should login first (command: login {username} {password})\n");
 
 	printf("%s", welcomeMessage);
 	free(welcomeMessage);
@@ -45,6 +46,8 @@ int clientMain(int inFd, int outFd){
 			exit(30);
 		}
 
+		dbg("sending arguments to server");
+
 		if (!sendCommandToServer(args, nrArgs, outFd)){
 			perror("sending command to server");
 
@@ -52,6 +55,9 @@ int clientMain(int inFd, int outFd){
 			close(outFd);
 			exit(21);
 		}
+
+		dbg("sent arguments to server");		
+
 		free2d((const void**)args, nrArgs);
 
 		if (!printResponse(inFd)){
@@ -61,6 +67,8 @@ int clientMain(int inFd, int outFd){
 			close(outFd);
 			exit(22);
 		}
+
+		dbg("reading new command");
 
 		commandChunks = readCommandChunks(&nrChunks);
 	}
@@ -122,6 +130,8 @@ char* newChunkedSubstr(const char** chunks, char* startPtr, int startChunk, char
 
 const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs){
 	char** args = NULL;
+	*nrArgs = 0;
+
 	if (nrChunks == 1 && strlen(commandChunks[0]) == 0){
 		args = malloc(sizeof(char*));
 		args[0] = malloc(sizeof(char));
@@ -138,6 +148,7 @@ const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs){
 	int chunkStart;
 	char separator = '\0';
 	while (chunkIdx != nrChunks || *chrPtr != '\0'){
+		dbg("in splitting; chunk %d is %s", chunkIdx, commandChunks[chunkIdx]);
 		if (!inWord){
 			if (!isWhitespace(*chrPtr)){
 				inWord = true;
@@ -156,6 +167,8 @@ const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs){
 		}
 		else{
 			if ((separator != '\0' && *chrPtr == separator) || (separator == '\0' && isWhitespace(*chrPtr))){
+				inWord = false;
+				
 				char* newArg = newChunkedSubstr(commandChunks, argStart, chunkStart, chrPtr, chunkIdx);
 				if (newArg == NULL){
 					perror("splitting command into arguments");
@@ -170,7 +183,28 @@ const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs){
 			}
 		}
 
+		if (chunkIdx == nrChunks || *(chrPtr + 1) == '\0'){
+			chrPtr++;
+			break;
+		}
+
 		chrPtr = chrNext(commandChunks, chrPtr, &chunkStart);
+	}
+
+	if (inWord){
+		inWord = false;
+
+		char* newArg = newChunkedSubstr(commandChunks, argStart, chunkStart, chrPtr, chunkIdx);
+		if (newArg == NULL){
+			perror("splitting command into arguments");
+			
+			free2d((const void**)args, *nrArgs);
+			return NULL;
+		}
+		
+		(*nrArgs)++;
+		args = realloc(args, sizeof(char*) * *nrArgs);
+		args[*nrArgs - 1] = newArg;
 	}
 
 	return (const char**)args;
@@ -230,12 +264,18 @@ char* newChunkedSubstr(const char** chunks, char* startPtr, int startChunk, char
 }
 
 bool sendCommandToServer(const char** args, int nrArgs, int outFd){
+	dbg("sending %p to server", args);
+
 	if (write(outFd, &nrArgs, 4) != 4){
 		perror("writing argument count");
 		return false;
 	}
 
+	dbg("written nrargs %d to server", nrArgs);
+
 	for (int i = 0; i < nrArgs; i++){
+		dbg("writing arg:");
+		dbg("%s", args[i]);
 		if (writeSizedStr(outFd, args[i]) != strlen(args[i])){
 			perror("sending argument");
 			return false;

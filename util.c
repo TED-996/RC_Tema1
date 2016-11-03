@@ -4,8 +4,11 @@
 #include <fcntl.h>
 #include <stdio.h>
 
+#define DBG
+
 #include "base.h"
 #include "util.h"
+#include "dbg.h"
 
 
 int readStr(int fd, char* buffer, int bufSize){
@@ -145,23 +148,30 @@ int allocReadSizedBuffer(int fd, unsigned char** dst){
 
     bytesRead = read(fd, &size, 4);
     if (bytesRead < 0){
+        dbg("erorr reading size: %d", bytesRead);
         return bytesRead;
     }
     if (bytesRead != 4){
+        dbg("size bytes not available");
         return -1;
     }
 
+    dbg("read size is %d", size);
+
     unsigned char* buffer = malloc(size);
     if (buffer == NULL){
+        dbg("malloc failed");
         return -1;
     }
 
     bytesRead = read(fd, buffer, size);
     if (bytesRead < 0){
+        dbg("read bulk failed");
         free(buffer);
         return bytesRead;
     }
     if (bytesRead != size){
+        dbg("read bulk not enough");
         free(buffer);
         return -1;
     }
