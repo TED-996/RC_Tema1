@@ -15,8 +15,9 @@
 #include "util.h"
 #include "login.h"
 #include "ipc.h"
+#include "myfuncs.h"
 
-#define DBG
+//#define DBG
 #include "dbg.h"
 
 
@@ -98,6 +99,9 @@ char** readCommand(int inFd, int outFd, int* nrArgs){
 void execLogin(char** command, int nrArgs, int outFd, UserRights* rights);
 void execRegister(char** command, int nrArgs, int outFd, UserRights* rights);
 void execSysCmd(char** command, int nrArgs, int outFd, UserRights* rights);
+void execMyFind(char** command, int nrArgs, int outFd, UserRights* rights);
+void execMyStat(char** command, int nrArgs, int outFd, UserRights* rights);
+
 
 bool execCommand(char** command, int nrArgs, int outFd, UserRights* rights){
     if (nrArgs == 0){
@@ -120,6 +124,16 @@ bool execCommand(char** command, int nrArgs, int outFd, UserRights* rights){
 
     if (strcmp(command[0], "register") == 0){
         execRegister(command, nrArgs, outFd, rights);
+        return true;
+    }
+
+    if (strcmp(command[0], "myfind") == 0){
+        execMyFind(command, nrArgs, outFd, rights);
+        return true;
+    }
+
+    if (strcmp(command[0], "mystat") == 0){
+        execMyStat(command, nrArgs, outFd, rights);
         return true;
     }
 
@@ -291,6 +305,41 @@ void execSysCmd(char** command, int nrArgs, int outFd, UserRights* rights){
         exit(20);
     }
 
+    writeSizedStr(outFd, "");
+}
+
+void execMyFind(char** command, int nrArgs, int outFd, UserRights* rights){
+    if (!(*rights & RightLtdCmd)){
+        writeSizedStr(outFd, "Insufficient rights.\n");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    if (nrArgs != 3){
+        writeSizedStr(outFd, "Invalid arguments.\nUsage: myfind directory pattern\n");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    myFind(command[1], command[2], outFd);
+    writeSizedStr(outFd, "");
+}
+
+
+void execMyStat(char** command, int nrArgs, int outFd, UserRights* rights){
+    if (!(*rights & RightLtdCmd)){
+        writeSizedStr(outFd, "Insufficient rights.\n");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    if (nrArgs != 2){
+        writeSizedStr(outFd, "Invalid arguments.\nUsage: mystat file\n");
+        writeSizedStr(outFd, "");
+        return;
+    }
+
+    myStat(command[1], outFd);
     writeSizedStr(outFd, "");
 }
 

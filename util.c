@@ -3,11 +3,12 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
 
 #include "base.h"
 #include "util.h"
 
-#define DBG
+//#define DBG
 #include "dbg.h"
 
 
@@ -338,4 +339,71 @@ int spawnSplitChannels(int (*childMain)(int, int), int* inChannel, int* outChann
 
     //If execution gets here, it's definitely a failure state.
     return -1;
+}
+
+
+bool mkdirRec(char* startDir, char* nextDirs);
+
+bool ensureDirectoryExists(const char* directoryInsideHome){
+    char* homePath = getenv("HOME");
+    if (homePath == NULL){
+        homePath = "/";
+    }
+
+    char homePathBuffer[4096];
+    char childDirBuffer[4096];
+    strcpy(homePathBuffer, homePath);
+    strcpy(childDirBuffer, directoryInsideHome);
+
+    if (!mkdirRec(homePathBuffer, childDirBuffer)){
+        return false;
+    }
+    return true;
+}
+
+
+const char* skipChars(const char* ptr, char chr);
+
+bool mkdirRec(char* startDir, char* nextDirs){
+    if (nextDirs[0] == '\0'){
+        return true;
+    }
+
+    const char* nextInPath = skipChars(nextDirs, '/');
+    char* slashIdx = strchr(nextInPath, '/');
+    if (slashIdx == NULL){
+        strcat(startDir, "/");
+        strcat(startDir, nextInPath);
+    }
+    else{
+        strcat(startDir, "/");
+        *slashIdx = '\0';
+        strcat(startDir, nextInPath);
+    }
+
+    struct stat statData;
+    if (stat(startDir, &statData) != -1){
+        if (!S_ISDIR(statData.st_mode)){
+            perror("An element parent of the requested path is not a directory!");
+            return false;
+        }
+    }
+    else{
+        if (mkdir(startDir, 0777) != 0){
+            perror("creating directory");
+            return false;
+        }
+    }
+
+    if (slashIdx != NULL){
+        return mkdirRec(startDir, slashIdx + 1);
+    }
+    return true;
+}
+
+const char* skipChars(const char* ptr, char chr){
+    while(*ptr == chr){
+        ptr++;
+    }
+    return ptr;
 }

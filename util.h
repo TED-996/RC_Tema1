@@ -20,4 +20,6 @@ bool getRandom(unsigned char* buffer, int nrBytes);
 int spawnSplitChannels(int (*childMain)(int, int), int* inChannel, int* outChannel);
 int execChild(char** arguments, int nrArgs, int* stdoutChannel);
 
+bool ensureDirectoryExists(const char* directoryInsideHome);
+
 #endif

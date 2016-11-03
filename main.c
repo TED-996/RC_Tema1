@@ -41,7 +41,7 @@ int main(int argc, char* argv[]){
 		exit(1);
 	}
 
-	printf("Establishing IPC channels...");
+	printf("Establishing IPC channels...\n");
 
 	int commandChannel[2];
 	if (!openChannel(channelType, commandChannel)){

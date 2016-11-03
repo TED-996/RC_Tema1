@@ -11,6 +11,9 @@
 #include "hash.h"
 #include "util.h"
 
+#define DBG
+#include "dbg.h"
+
 #define SaltLength 8
 const char* loginDirectory = "/rc/rct1/logins";
 
@@ -121,6 +124,7 @@ bool registerUser(const char* username, const char* password, UserRights rights)
     }
 
     char saltedPassword[256 + SaltLength + 4];
+    memset(saltedPassword, 0, 256 + SaltLength + 4);
     memcpy(saltedPassword, salt, SaltLength);
     memcpy(saltedPassword + SaltLength, (int*)&rights, 4);
     strcpy((char*)saltedPassword + SaltLength + 4, password);
@@ -167,68 +171,7 @@ bool usernameExists(const char* username){
     return true;
 }
 
-bool mkdirRec(char* startDir, char* nextDirs);
 
 bool ensureLoginsDirectory(){
-    char* homePath = getenv("HOME");
-    if (homePath == NULL){
-        homePath = "/";
-    }
-
-    char homePathBuffer[4096];
-    char loginDirBuffer[4096];
-    strcpy(homePathBuffer, homePath);
-    strcpy(loginDirBuffer, loginDirectory);
-
-    if (!mkdirRec(homePathBuffer, loginDirBuffer)){
-        return false;
-    }
-    return true;
-}
-
-
-const char* skipChars(const char* ptr, char chr);
-
-bool mkdirRec(char* startDir, char* nextDirs){
-    if (nextDirs[0] == '\0'){
-        return true;
-    }
-
-    const char* nextInPath = skipChars(nextDirs, '/');
-    char* slashIdx = strchr(nextInPath, '/');
-    if (slashIdx == NULL){
-        strcat(startDir, "/");
-        strcat(startDir, nextInPath);
-    }
-    else{
-        strcat(startDir, "/");
-        *slashIdx = '\0';
-        strcat(startDir, nextInPath);
-    }
-
-    struct stat statData;
-    if (stat(startDir, &statData) != -1){
-        if (!S_ISDIR(statData.st_mode)){
-            perror("An element parent of the requested path is not a directory!");
-            return false;
-        }
-    }
-    else{
-        if (mkdir(startDir, 0777) != 0){
-            perror("creating directory");
-            return false;
-        }
-    }
-
-    if (slashIdx != NULL){
-        return mkdirRec(startDir, slashIdx + 1);
-    }
-    return true;
-}
-
-const char* skipChars(const char* ptr, char chr){
-    while(*ptr == chr){
-        ptr++;
-    }
-    return ptr;
+    return ensureDirectoryExists(loginDirectory);
 }

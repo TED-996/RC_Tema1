@@ -11,13 +11,20 @@ void hashBuffer(void* src, int srcLen, unsigned char* dst){
     int roundIdx = 0;
     memset(dst, 0, HashLength);
 
+    unsigned char* srcCpy = (unsigned char*) src;
+
+    unsigned char hashBuffer[HashLength + 1];
+    memset(hashBuffer, 0, HashLength + 1);
+
     while(roundIdx < HashLength){
-        for (unsigned char* srcPtr = (unsigned char*)src; srcPtr < (unsigned char*)src + srcLen; srcPtr++){
-            rolBuffer(dst, HashLength, 5);
-            dst[HashLength - 1] ^= *srcPtr;
+        for (unsigned char* srcPtr = srcCpy; srcPtr < srcCpy + srcLen; srcPtr++){
+            rolBuffer(hashBuffer, HashLength + 1, 5);
+            hashBuffer[0] ^= *srcPtr;
         }
         roundIdx++;
     }
+
+    memcpy(dst, hashBuffer, HashLength);
 
 }
 
