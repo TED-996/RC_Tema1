@@ -4,10 +4,10 @@
 #include <fcntl.h>
 #include <stdio.h>
 
-#define DBG
-
 #include "base.h"
 #include "util.h"
+
+#define DBG
 #include "dbg.h"
 
 
@@ -187,23 +187,30 @@ int allocReadSizedStr(int fd, char** dst){
 
     bytesRead = read(fd, &size, 4);
     if (bytesRead < 0){
+        dbg("erorr reading size: %d", bytesRead);        
         return bytesRead;
     }
     if (bytesRead != 4){
+        dbg("size bytes not available");
         return -1;
     }
 
+    dbg("read size is %d", size);    
+
     char* buffer = malloc(size + 1);
     if (buffer == NULL){
+        dbg("malloc failed");        
         return -1;
     }
 
     bytesRead = read(fd, buffer, size);
     if (bytesRead < 0){
+        dbg("read bulk failed");        
         free(buffer);
         return bytesRead;
     }
     if (bytesRead != size){
+        dbg("read bulk not enough");
         free(buffer);
         return -1;
     }
@@ -240,8 +247,11 @@ void free2d(const void** data, int len){
     }
 
     for (int i = 0; i < len; i++){
+        dbg("freeing %p (idx %d)", data[i], i);
         free((void*)data[i]);
     }
+
+    dbg("freeing %p (base)", data);
     free((void*)data);
 }
 
@@ -277,11 +287,11 @@ int execChild(char** arguments, int nrArgs, int* stdoutChannel){
 
         dup2(2, 1);
         
-        char** arguments2 = malloc(nrArgs * sizeof(char*));
-        for (int i = 1; i < nrArgs; i++){
-            arguments2[i - 1] = arguments[i];
+        char** arguments2 = malloc((nrArgs + 1) * sizeof(char*));
+        for (int i = 0; i < nrArgs; i++){
+            arguments2[i] = arguments[i];
         }
-        arguments2[nrArgs - 1] = NULL;
+        arguments2[nrArgs] = NULL;
 
         if (execvp(arguments[0], arguments2) == -1){
             perror("executing child process");

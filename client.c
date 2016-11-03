@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "base.h"
 #include "util.h"
@@ -61,6 +62,10 @@ int clientMain(int inFd, int outFd){
 		free2d((const void**)args, nrArgs);
 
 		if (!printResponse(inFd)){
+			if (errno == 0){
+				break;
+			}
+
 			perror("printing response from server");
 
 			close(inFd);
@@ -72,7 +77,7 @@ int clientMain(int inFd, int outFd){
 
 		commandChunks = readCommandChunks(&nrChunks);
 	}
-	printf("Client shutting down.");
+	printf("Client shutting down.\n");
 
 	close(inFd);
 	close(outFd);
@@ -291,7 +296,9 @@ bool printResponse(int inFd){
 		int respLen = allocReadSizedStr(inFd, &response);
 
 		if (respLen < 0){
-			perror("reading response from server");
+			if (errno != 0){
+				perror("reading response from server");
+			}
 			return false;
 		}
 
