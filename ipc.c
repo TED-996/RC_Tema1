@@ -1,12 +1,15 @@
-#include<stdio.h>
-#include<unistd.h>
-#include<sys/types.h>
-#include<sys/socket.h>
-#include<sys/pipe.h>
-#include<fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
+#include "base.h"
 #include "ipc.h"
 
+const char* const channelNames[] = {"fifo", "pipe", "socket"};
+const int nrChannelTypes = 3;
 
 int getFifoName(char* buffer);
 
@@ -14,9 +17,9 @@ int getFifoName(char* buffer);
 bool openChannel(ChannelType type, int* result){
 	if (type == Fifo){
 		char name[300];
-		getFifoName(name1)
+		getFifoName(name);
 		if (mkfifo(name, 0666) == 0){
-			perror("creating FIFO")
+			perror("creating FIFO");
 			return false;
 		}
 
@@ -57,6 +60,6 @@ bool openChannel(ChannelType type, int* result){
 
 int fifoUid = 0;
 
-int getFifoName(char* buffer, int uid){
-	return sprintf(buffer,  "%s/%s_p%d_%d.%s", "~/dev/fifo", "tema1", getpid(), fifoUid++, "fifo")
+int getFifoName(char* buffer){
+	return sprintf(buffer,  "%s/%s_p%d_%d.%s", "~/dev/fifo", "tema1", getpid(), fifoUid++, "fifo");
 }

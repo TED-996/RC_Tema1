@@ -1,15 +1,21 @@
-#include<unistd.h>
-#include<stdin.h>
-#include<stdlib.h>
-#include<strings.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <strings.h>
+#include <string.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/wait.h>
 
+#include "base.h"
+#include "server.h"
 #include "util.h"
 #include "login.h"
 #include "ipc.h"
 
 
 char** readCommand(int inFd, int outFd, int* nrArgs);
-bool execCommand(char** command, int nrArgs, int outFd, UserRights* &rights);
+bool execCommand(char** command, int nrArgs, int outFd, UserRights* rights);
 
 int serverMain(int inFd, int outFd){
     UserRights userRights = 0;
@@ -21,20 +27,20 @@ int serverMain(int inFd, int outFd){
     int nrArgs;
     char** command = readCommand(inFd, outFd, &nrArgs);
     while(command != NULL){
-        if (!execCommand(command, nrArgs, outFd, &rights)){
+        if (!execCommand(command, nrArgs, outFd, &userRights)){
             perror("executing command");
             
-            close(intFd);
+            close(inFd);
             close(outFd);
 
             exit(10);
         }
 
-        free2d(command, nrArgs);
+        free2d((const void**)command, nrArgs);
         command = readCommand(inFd, outFd, &nrArgs);
     }
 
-    close(intFd);
+    close(inFd);
     close(outFd);
     return 0;
 }
@@ -48,15 +54,15 @@ char** readCommand(int inFd, int outFd, int* nrArgs){
         return NULL;
     }
 
-    char** result = malloc(4 * nrArgs);
+    result = malloc(4 * *nrArgs);
     if (result == NULL){
         return NULL;
     }
 
-    for (int i = 0; i < nrArgs; i++){
+    for (int i = 0; i < *nrArgs; i++){
         char* arg;
-        if (allocReadSizedStr(fd, &arg) < 0){
-            free2d(result, i);
+        if (allocReadSizedStr(inFd, &arg) < 0){
+            free2d((const void**)result, i);
             return NULL;
         }
         result[i] = arg;
@@ -84,13 +90,16 @@ bool execCommand(char** command, int nrArgs, int outFd, UserRights* rights){
 
     if (strcmp(command[0], "login") == 0){
         execLogin(command, nrArgs, outFd, rights);
-        return;
+        return true;
     }
 
     if (strcmp(command[0], "register") == 0){
         execRegister(command, nrArgs, outFd, rights);
-        return;
+        return true;
     }
+
+    execSysCmd(command, nrArgs, outFd, rights);
+    return true;
 }
 
 
@@ -163,7 +172,7 @@ void execRegister(char** command, int nrArgs, int outFd, UserRights* rights){
         newRights |= RightSysCmd;
         nrRights++;
     }
-    if (strchr(command[3], 'p`')){
+    if (strchr(command[3], 'p')){
         newRights |= RightSysCmd;
         nrRights++;
     }
@@ -172,7 +181,7 @@ void execRegister(char** command, int nrArgs, int outFd, UserRights* rights){
         nrRights++;
     }
 
-    if (strlen(command[3] != nrRights)){
+    if (strlen(command[3]) != nrRights){
         writeSizedStr(outFd, "Invalid rights.\nUnrecognized values.\n");
         writeSizedStr(outFd, "");
         return;
@@ -186,7 +195,7 @@ void execRegister(char** command, int nrArgs, int outFd, UserRights* rights){
         }
     }
     
-    if (!register(command[1], command[2], newRights)){
+    if (!registerUser(command[1], command[2], newRights)){
         writeSizedStr(outFd, "Could not register user.\n");
         writeSizedStr(outFd, "");
         return;
@@ -210,32 +219,39 @@ void execSysCmd(char** command, int nrArgs, int outFd, UserRights* rights){
     int stdoutPipes[2];
     if (!openChannel(Pipe, stdoutPipes)){
         perror("opening pipe to child process");
+        writeSizedStr(outFd, "Could not start command (opening channels)");
+        writeSizedStr(outFd, "");
         return;
     }
 
     int childPid = execChild(command, nrArgs, stdoutPipes);
+    if (childPid == -1){
+        writeSizedStr(outFd, "Could not start command.");
+        writeSizedStr(outFd, "");
+        return;
+    }
 
     int inFd = stdoutPipes[0];
     int fdFlags = fcntl(inFd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    fcntl(inFd, F_SETFL, fdFlags | O_NONBLOCK);
 
     const int bufferSize = 1024;
     char* buffer[bufferSize];
 
     while(true){
         int bytesRead = read(inFd, buffer, bufferSize);
-        if (bytesRead == 0 || (bytesRead < 0 && errno() != EAGAIN && errno() != EWOULDBLOCK)){
+        if (bytesRead == 0 || (bytesRead < 0 && errno != EAGAIN && errno != EWOULDBLOCK)){
             break;
         }
 
-        if (writeSizedBuffer(outFd, buffer, bytesRead) != bytesRead){
+        if (writeSizedBuffer(outFd, (unsigned char*)buffer, bytesRead) != bytesRead){
             perror("writing response to pipe");
             break;
         }
     }
     writeSizedStr(outFd, "\n");
 
-    if (wait(childPid) == -1){
+    if (wait(NULL) == -1){
         perror("waiting for child process to close");
         exit(20);
     }

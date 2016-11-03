@@ -1,12 +1,15 @@
-#include<unistd.h>
-#include<string.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <stdio.h>
 
-#include"util.h"
+#include "base.h"
+#include "util.h"
 
 
 int readStr(int fd, char* buffer, int bufSize){
     char* bufPtr = buffer;
-    int chrLeft = bufSize;
     int totalRead = 0;
 
     while(totalRead < bufSize - 1){
@@ -19,14 +22,14 @@ int readStr(int fd, char* buffer, int bufSize){
             return totalRead;
         }
 
-        *bufPtr++;
+        (*bufPtr)++;
         totalRead++;
     }
 
     //We must consume the rest of the buffer. Sorry.
     char temp = -1;
     while(temp){
-        int byresRead = read(fd, &temp, 1);
+        int bytesRead = read(fd, &temp, 1);
         if (bytesRead < 0){
             return bytesRead;
         }
@@ -38,7 +41,6 @@ int readStr(int fd, char* buffer, int bufSize){
 
 
 int writeStr(int fd, const char* str){
-    char* ptr = str;
     int len = strlen(str);
 
     int written = write(fd, str, len);
@@ -47,7 +49,7 @@ int writeStr(int fd, const char* str){
         return written;
     }
 
-    int termWritten = write(fd, *str + len, 1);
+    int termWritten = write(fd, str + len, 1);
     if (termWritten < 0){
         return termWritten;
     }
@@ -101,7 +103,7 @@ int readSizedBuffer(int fd, unsigned char* buffer, int bufSize){
 
 
 int readSizedStr(int fd, char* buffer, int bufSize){
-    int bytesRead = readSizedBuffer(fd, buffer, bufSize - 1);
+    int bytesRead = readSizedBuffer(fd, (unsigned char*)buffer, bufSize - 1);
     if (bytesRead < 0){
         return bytesRead;
     }
@@ -132,8 +134,8 @@ int writeSizedBuffer(int fd, const unsigned char* buffer, int size){
 }
 
 
-int writeSizedStr(int fd, char* buffer){
-    return writeSizedBuffer(fd, buffer, strlen(buffer));
+int writeSizedStr(int fd, const char* buffer){
+    return writeSizedBuffer(fd, (const unsigned char*)buffer, strlen(buffer));
 }
 
 
@@ -222,19 +224,19 @@ int bufcmp(const void* buf1, int len1, const void* buf2, int len2){
 }
 
 
-void free2d(void** data, int len){
+void free2d(const void** data, int len){
     if (data == NULL){
         return;
     }
 
     for (int i = 0; i < len; i++){
-        free(data[i]);
+        free((void*)data[i]);
     }
-    free(data);
+    free((void*)data);
 }
 
 
-bool getRandom(char* buffer, int nrBytes){
+bool getRandom(unsigned char* buffer, int nrBytes){
     int randomFd = open("/dev/urandom", O_RDONLY);
     if (randomFd == -1){
         return false;
@@ -246,20 +248,6 @@ bool getRandom(char* buffer, int nrBytes){
     return true;
 }
 
-
-int spawnVoidPtr(int (*childMain)(void*), void* parameter){
-	int childPid = fork();
-	if (childPid == -1){
-		return -1;
-	}
-	if (childPid != 0){
-		return childPid;
-	}
-	else{
-		int retcode = childMain(parameter);
-        exit(retcode);
-	}
-}
 
 
 int execChild(char** arguments, int nrArgs, int* stdoutChannel){
@@ -279,7 +267,7 @@ int execChild(char** arguments, int nrArgs, int* stdoutChannel){
 
         dup2(2, 1);
         
-        char** arguments2 = new(nrArgs * sizeof(char*));
+        char** arguments2 = malloc(nrArgs * sizeof(char*));
         for (int i = 1; i < nrArgs; i++){
             arguments2[i - 1] = arguments[i];
         }
@@ -290,6 +278,9 @@ int execChild(char** arguments, int nrArgs, int* stdoutChannel){
             exit(10);
         }
 	}
+
+    //If execution gets here, it's definitely a failure state.
+    return -1;
 }
 
 
@@ -314,4 +305,7 @@ int spawnSplitChannels(int (*childMain)(int, int), int* inChannel, int* outChann
 		int retcode = childMain(inChannel[0], outChannel[1]);
         exit(retcode);
 	}
+
+    //If execution gets here, it's definitely a failure state.
+    return -1;
 }

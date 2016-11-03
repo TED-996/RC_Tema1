@@ -1,12 +1,15 @@
-#include<unistd.h>
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include "base.h"
+#include "util.h"
 
 
 const char** readCommandChunks(int* nrChunks);
 const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs);
-bool sendCommandToServer(char** args, int nrArgs, int outFd);
+bool sendCommandToServer(const char** args, int nrArgs, int outFd);
 bool printResponse(int inFd);
 
 
@@ -20,19 +23,19 @@ int clientMain(int inFd, int outFd){
 		exit(20);
 	}
 
-	printf("Connected.\n")
+	printf("Connected.\n");
 	printf("You should login first (command: login {username})\n");
 
 	printf("%s", welcomeMessage);
 	free(welcomeMessage);
 
 	int nrChunks;
-	char** commandChunks = readCommandChunks(&nrChunks);
+	const char** commandChunks = readCommandChunks(&nrChunks);
 
 	while(commandChunks != NULL){
 		int nrArgs;
-		char** args = splitArgs(commandChunks, nrChunks, &nrArgs);
-		free2d(commandChunks, nrChunks);		
+		const char** args = splitArgs(commandChunks, nrChunks, &nrArgs);
+		free2d((const void**)commandChunks, nrChunks);		
 
 		if (args == NULL){
 			perror("splitting arguments from chunks");
@@ -42,14 +45,14 @@ int clientMain(int inFd, int outFd){
 			exit(30);
 		}
 
-		if (!sendCommand(args, nrArgs, outFd)){
+		if (!sendCommandToServer(args, nrArgs, outFd)){
 			perror("sending command to server");
 
 			close(inFd);
 			close(outFd);
 			exit(21);
 		}
-		free2d(args, nrArgs);
+		free2d((const void**)args, nrArgs);
 
 		if (!printResponse(inFd)){
 			perror("printing response from server");
@@ -84,7 +87,7 @@ const char** readCommandChunks(int* nrChunks){
 		
 		if (fgets(thisChunk, chunkSize, stdin) == NULL){
 			free(thisChunk);
-			return result;
+			return (const char**)result;
 		}
 
 		int chunkLen = strlen(thisChunk);
@@ -102,14 +105,14 @@ const char** readCommandChunks(int* nrChunks){
 			done = true;
 		}
 		else{
-			*nrChunks++;
+			(*nrChunks)++;
 			result = realloc(result, sizeof(char*) * *nrChunks);
 			result[*nrChunks - 1] = thisChunk;
 		}
 
 	}
 
-	return result;
+	return (const char**)result;
 }
 
 
@@ -118,17 +121,17 @@ char* chrNext(const char** chunks, char* ptr, int* chunkIdx);
 char* newChunkedSubstr(const char** chunks, char* startPtr, int startChunk, char* endPtr, int endChunk);
 
 const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs){
-	char** args = NULL:
+	char** args = NULL;
 	if (nrChunks == 1 && strlen(commandChunks[0]) == 0){
 		args = malloc(sizeof(char*));
 		args[0] = malloc(sizeof(char));
 		args[0][0] = '\0';
 
-		return args;
+		return (const char**)args;
 	}
 
 	int chunkIdx = 0;
-	char* chrPtr = commandChunks[0];
+	char* chrPtr = (char*)commandChunks[0];
 	
 	bool inWord = 0;
 	char* argStart;
@@ -152,16 +155,16 @@ const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs){
 			}
 		}
 		else{
-			if ((separator != '\0' && *chrPtr == separator) || (separator == '\0' && isWhitespace(chrPtr))){
+			if ((separator != '\0' && *chrPtr == separator) || (separator == '\0' && isWhitespace(*chrPtr))){
 				char* newArg = newChunkedSubstr(commandChunks, argStart, chunkStart, chrPtr, chunkIdx);
 				if (newArg == NULL){
 					perror("splitting command into arguments");
 					
-					free2d(args, nrArgs);
+					free2d((const void**)args, *nrArgs);
 					return NULL;
 				}
 				
-				*nrArgs++;
+				(*nrArgs)++;
 				args = realloc(args, sizeof(char*) * *nrArgs);
 				args[*nrArgs - 1] = newArg;
 			}
@@ -169,13 +172,15 @@ const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs){
 
 		chrPtr = chrNext(commandChunks, chrPtr, &chunkStart);
 	}
+
+	return (const char**)args;
 }
 
 char* chrNext(const char** chunks, char* ptr, int* chunkIdx){
 	ptr++;
 	if (*ptr == '\0'){
-		*chunkIdx++;
-		return chunks[chunkIdx];
+		(*chunkIdx)++;
+		return (char*)chunks[*chunkIdx];
 	}
 	return ptr;
 }
@@ -185,7 +190,7 @@ bool isWhitespace(char ch){
 }
 
 char* newChunkedSubstr(const char** chunks, char* startPtr, int startChunk, char* endPtr, int endChunk){
-	result = NULL;
+	char* result = NULL;
 	if (startChunk == endChunk){
 		if (endPtr < startPtr){
 			return NULL;
@@ -224,14 +229,14 @@ char* newChunkedSubstr(const char** chunks, char* startPtr, int startChunk, char
 
 }
 
-bool sendCommandToServer(char** args, int nrArgs, int outFd){
+bool sendCommandToServer(const char** args, int nrArgs, int outFd){
 	if (write(outFd, &nrArgs, 4) != 4){
 		perror("writing argument count");
 		return false;
 	}
 
 	for (int i = 0; i < nrArgs; i++){
-		if (writeSizedStr(outFd, args[i]) != strlen(args)){
+		if (writeSizedStr(outFd, args[i]) != strlen(args[i])){
 			perror("sending argument");
 			return false;
 		}
@@ -240,7 +245,7 @@ bool sendCommandToServer(char** args, int nrArgs, int outFd){
 	return true;
 }
 
-bool printResponse(bool inFd){
+bool printResponse(int inFd){
 	while(true){
 		char* response;
 		int respLen = allocReadSizedStr(inFd, &response);
@@ -257,4 +262,7 @@ bool printResponse(bool inFd){
 		printf("%s", response);
 		free(response);
 	}
+
+	//If this reached here it's a problem.
+	return false;
 }

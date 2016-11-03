@@ -1,13 +1,15 @@
-#include<stdlib.h>
-#include<stdio.h>
-#include<sys/types.h>
-#include<unistd.h>
-#include<string.h>
-#include<sys/stat.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
-#include"login.h"
-#include"hash.h"
-#include"util.h"
+#include "base.h"
+#include "login.h"
+#include "hash.h"
+#include "util.h"
 
 #define SaltLength 8
 const char* loginDirectory = "/rc/rct1/logins";
@@ -37,7 +39,7 @@ bool checkLogin(const char* username, const char* password, UserRights* rights){
 
     unsigned char salt[SaltLength + 1];
     char expectedPassword[HashLength];
-    if (read(loginFd, salt, SaltLength); != 8 || read(loginFd, rights, 4) != 4 || read(loginFd, expectedPassword, HashLength) != HashLength){
+    if (read(loginFd, salt, SaltLength) != 8 || read(loginFd, rights, 4) != 4 || read(loginFd, expectedPassword, HashLength) != HashLength){
         fprintf(stderr, "Warning: Malformed login file %s.\n", loginFile);
         close(loginFd);
         return false;
@@ -50,11 +52,11 @@ bool checkLogin(const char* username, const char* password, UserRights* rights){
     
     memcpy(saltedPassword, salt, SaltLength);
     memcpy(saltedPassword + SaltLength, (int*)rights, 4);
-    strcpy(saltedPassword + SaltLength + 4, password);
+    strcpy((char*) saltedPassword + SaltLength + 4, password);
 
     hashBuffer(saltedPassword, SaltLength + 4 + strlen(password), passwordHash);
 
-    return (memcmp(passwordHash, expectedPassword, HashLength) == 0)
+    return (memcmp(passwordHash, expectedPassword, HashLength) == 0);
 }
 
 bool usernameOk(const char* username){
@@ -83,7 +85,7 @@ bool getLoginFilename(const char* username, char* dest, int destLen){
         return false;
     }
 
-    int bytesWritten = snprintf(dest, destLen, "%s/%s/%s", homePath, loginDirectory, username)
+    int bytesWritten = snprintf(dest, destLen, "%s/%s/%s", homePath, loginDirectory, username);
     if (bytesWritten <= 0 || bytesWritten >= destLen){
         return false;
     }
@@ -94,7 +96,7 @@ bool getLoginFilename(const char* username, char* dest, int destLen){
 
 bool passwordOk(const char* password);
 
-bool register(const char* username, const char* password, UserRights rights){
+bool registerUser(const char* username, const char* password, UserRights rights){
     if (!passwordOk(password)){
         return false;
     }
@@ -121,7 +123,7 @@ bool register(const char* username, const char* password, UserRights rights){
     char saltedPassword[256 + SaltLength + 4];
     memcpy(saltedPassword, salt, SaltLength);
     memcpy(saltedPassword + SaltLength, (int*)&rights, 4);
-    strcpy(saltedPassword + SaltLength + 4, password);
+    strcpy((char*)saltedPassword + SaltLength + 4, password);
 
     unsigned char passwordHash[HashLength];
     hashBuffer(saltedPassword, SaltLength + 4 + strlen(password), passwordHash);
@@ -185,14 +187,14 @@ bool ensureLoginsDirectory(){
 }
 
 
-char* skipChars(const char* ptr, char chr);
+const char* skipChars(const char* ptr, char chr);
 
 bool mkdirRec(char* startDir, char* nextDirs){
     if (nextDirs[0] == '\0'){
         return true;
     }
 
-    char* nextInPath = skipChars(nextDirs, '/');
+    const char* nextInPath = skipChars(nextDirs, '/');
     char* slashIdx = strchr(nextInPath, '/');
     if (slashIdx == NULL){
         strcat(startDir, "/");
@@ -224,7 +226,7 @@ bool mkdirRec(char* startDir, char* nextDirs){
     return true;
 }
 
-char* skipChars(const char* ptr, char chr){
+const char* skipChars(const char* ptr, char chr){
     while(*ptr == chr){
         ptr++;
     }

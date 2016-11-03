@@ -1,5 +1,7 @@
-#include<stdlib.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "base.h"
 #include "hash.h"
 
 
@@ -9,12 +11,10 @@ void hashBuffer(void* src, int srcLen, unsigned char* dst){
     int roundIdx = 0;
     memset(dst, 0, HashLength);
 
-    while(roundIdx < hashLength){
-        unsigned char* srcPtr = (unsigned char*)src;
-
-        for (unsigned char srcPtr = (unsigned char*)src, srcPtr < (unsigned char*)src + srcLen; srcPtr++){
+    while(roundIdx < HashLength){
+        for (unsigned char* srcPtr = (unsigned char*)src; srcPtr < (unsigned char*)src + srcLen; srcPtr++){
             rolBuffer(dst, HashLength, 5);
-            dst[HashLength - 1] ^= srcPtr;
+            dst[HashLength - 1] ^= *srcPtr;
         }
     }
 
@@ -27,7 +27,7 @@ void rolBuffer(unsigned char* buffer, int length, int amount){
 
     for (unsigned char* bufferPtr = buffer + 1; bufferPtr < buffer + length; bufferPtr++){
         *(bufferPtr - 1) |= (*bufferPtr >> (8 - amount)) & bitmask;
-        *bufferPtr << amount;
+        *bufferPtr <<= amount;
     }
 
     buffer[length - 1] |= hibits;
