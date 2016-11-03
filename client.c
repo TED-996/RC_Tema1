@@ -47,7 +47,7 @@ int clientMain(int inFd, int outFd){
 			exit(30);
 		}
 
-		dbg("sending arguments to server");
+		//dbg("sending arguments to server");
 
 		if (!sendCommandToServer(args, nrArgs, outFd)){
 			perror("sending command to server");
@@ -57,7 +57,7 @@ int clientMain(int inFd, int outFd){
 			exit(21);
 		}
 
-		dbg("sent arguments to server");		
+		//dbg("sent arguments to server");		
 
 		free2d((const void**)args, nrArgs);
 
@@ -73,7 +73,7 @@ int clientMain(int inFd, int outFd){
 			exit(22);
 		}
 
-		dbg("reading new command");
+		//dbg("reading new command");
 
 		commandChunks = readCommandChunks(&nrChunks);
 	}
@@ -153,7 +153,7 @@ const char** splitArgs(const char** commandChunks, int nrChunks, int* nrArgs){
 	int chunkStart;
 	char separator = '\0';
 	while (chunkIdx != nrChunks || *chrPtr != '\0'){
-		dbg("in splitting; chunk %d is %s", chunkIdx, commandChunks[chunkIdx]);
+		//dbg("in splitting; chunk %d is %s", chunkIdx, commandChunks[chunkIdx]);
 		if (!inWord){
 			if (!isWhitespace(*chrPtr)){
 				inWord = true;
@@ -269,18 +269,18 @@ char* newChunkedSubstr(const char** chunks, char* startPtr, int startChunk, char
 }
 
 bool sendCommandToServer(const char** args, int nrArgs, int outFd){
-	dbg("sending %p to server", args);
+	//dbg("sending %p to server", args);
 
 	if (write(outFd, &nrArgs, 4) != 4){
 		perror("writing argument count");
 		return false;
 	}
 
-	dbg("written nrargs %d to server", nrArgs);
+	//dbg("written nrargs %d to server", nrArgs);
 
 	for (int i = 0; i < nrArgs; i++){
-		dbg("writing arg:");
-		dbg("%s", args[i]);
+		//dbg("writing arg:");
+		//dbg("%s", args[i]);
 		if (writeSizedStr(outFd, args[i]) != strlen(args[i])){
 			perror("sending argument");
 			return false;

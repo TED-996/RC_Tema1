@@ -34,6 +34,13 @@ int serverMain(int inFd, int outFd){
     int nrArgs;
     char** command = readCommand(inFd, outFd, &nrArgs);
     while(command != NULL){
+        if (nrArgs >= 1){
+            dbg("command is %s", command[0]);
+        }
+        else{
+            dbg("command: 0 arguments");
+        }
+
         if (nrArgs == 1 && strcmp(command[0], "exit") == 0){
             free2d((const void**)command, nrArgs);
             break;
@@ -62,19 +69,21 @@ int serverMain(int inFd, int outFd){
 
 char** readCommand(int inFd, int outFd, int* nrArgs){
     char** result = NULL;
+    int newNrArgs = 0;
 
-    int bytesRead = read(inFd, nrArgs, 4);
+    int bytesRead = read(inFd, &newNrArgs, 4);
     if (bytesRead != 4){
         return NULL;
     }
+    *nrArgs = newNrArgs;
 
-    result = malloc(4 * *nrArgs);
+    result = malloc(sizeof(char*) * (*nrArgs));
     if (result == NULL){
         return NULL;
     }
 
     for (int i = 0; i < *nrArgs; i++){
-        char* arg;
+        char* arg = 0;
         if (allocReadSizedStr(inFd, &arg) < 0){
             free2d((const void**)result, i);
             return NULL;
@@ -95,6 +104,8 @@ bool execCommand(char** command, int nrArgs, int outFd, UserRights* rights){
         perror("there should never be 0 arguments");
         return false;
     }
+
+    dbg("current command: %s", command[0]);
 
     if (nrArgs == 1 && command[0][0] == '\0'){
         writeSizedStr(outFd, "\n");

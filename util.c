@@ -146,6 +146,8 @@ int allocReadSizedBuffer(int fd, unsigned char** dst){
     int size;
     int bytesRead;
 
+    *dst = NULL;
+
     bytesRead = read(fd, &size, 4);
     if (bytesRead < 0){
         dbg("erorr reading size: %d", bytesRead);
@@ -177,6 +179,9 @@ int allocReadSizedBuffer(int fd, unsigned char** dst){
     }
 
     *dst = buffer;
+
+    dbg("allocd buffer %s at ptr %p", buffer, buffer);
+    
     return size;
 }
 
@@ -184,6 +189,8 @@ int allocReadSizedBuffer(int fd, unsigned char** dst){
 int allocReadSizedStr(int fd, char** dst){
     int size;
     int bytesRead;
+
+    *dst = NULL;
 
     bytesRead = read(fd, &size, 4);
     if (bytesRead < 0){
@@ -195,7 +202,7 @@ int allocReadSizedStr(int fd, char** dst){
         return -1;
     }
 
-    dbg("read size is %d", size);    
+    //dbg("read size is %d", size);    
 
     char* buffer = malloc(size + 1);
     if (buffer == NULL){
@@ -217,6 +224,9 @@ int allocReadSizedStr(int fd, char** dst){
 
     buffer[size] = '\0';
     *dst = buffer;
+
+    dbg("allocd string %s at ptr %p", buffer, buffer);
+
     return size;
 }
 
@@ -247,7 +257,7 @@ void free2d(const void** data, int len){
     }
 
     for (int i = 0; i < len; i++){
-        dbg("freeing %p (idx %d)", data[i], i);
+        dbg("freeing %p (idx %d, data = %s)", data[i], i, (char*)data[i]);
         free((void*)data[i]);
     }
 
