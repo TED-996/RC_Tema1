@@ -15,7 +15,7 @@
 #include "dbg.h"
 
 #define SaltLength 8
-const char* loginDirectory = "/rc/rct1/logins";
+const char* loginDirectory = "/logins";
 
 
 bool usernameOk(const char* username);
@@ -84,9 +84,18 @@ bool getLoginFilename(const char* username, char* dest, int destLen){
         homePath = "/";
     }
 
+    //rc test
+    char cwd[4096];
+    if (getcwd(cwd, 4096) == NULL){
+        perror("getting current directory");
+        return false;
+    }
+    homePath = cwd;
+
     if (!usernameOk(username)){
         return false;
     }
+
 
     int bytesWritten = snprintf(dest, destLen, "%s/%s/%s", homePath, loginDirectory, username);
     if (bytesWritten <= 0 || bytesWritten >= destLen){

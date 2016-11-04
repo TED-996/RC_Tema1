@@ -349,10 +349,17 @@ bool ensureDirectoryExists(const char* directoryInsideHome){
     if (homePath == NULL){
         homePath = "/";
     }
-
+    
     char homePathBuffer[4096];
     char childDirBuffer[4096];
-    strcpy(homePathBuffer, homePath);
+
+    //rc test
+    if (getcwd(homePathBuffer, 4096) == NULL){
+        perror("getting current directory");
+        return false;
+    }
+    
+    //strcpy(homePathBuffer, homePath);
     strcpy(childDirBuffer, directoryInsideHome);
 
     if (!mkdirRec(homePathBuffer, childDirBuffer)){

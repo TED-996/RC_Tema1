@@ -1,7 +1,7 @@
 #ifndef RCT1_DEBUG_H
 #define RCT1_DEBUG_H
 
-//#define DBG_DISABLE
+#define DBG_DISABLE
 
 #ifdef DBG
 	#ifndef DBG_DISABLE
