@@ -1,3 +1,5 @@
+#define _XOPEN_SOURCE 700
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -9,6 +11,10 @@
 #include "base.h"
 #include "ipc.h"
 #include "util.h"
+
+
+#define DBG
+#include "dbg.h"
 
 
 const char* const channelNames[] = {"fifo", "pipe", "socket"};
@@ -28,7 +34,7 @@ bool openChannel(ChannelType type, int* result){
 			return false;
 		}
 
-		if (mkfifo(name, 0666) != 0){
+		if (mknod(name, 0666 | S_IFIFO, 0) != 0){
 			perror("creating FIFO");
 			return false;
 		}
@@ -47,7 +53,13 @@ bool openChannel(ChannelType type, int* result){
 			return false;
 		}
 
-		int flags = fcntl(result[0], F_GETFD);
+		if (fcntl(result[0], F_SETFL, 0) == -1){
+			perror("setting fifo back to blocking");
+			return false;
+		}
+
+		/*int flags = fcntl(result[0], F_GETFD, 0);
+		dbg("flags are %x", flags);
 		if (flags == -1){
 			perror("getting FIFO flags");
 			return false;
@@ -56,6 +68,9 @@ bool openChannel(ChannelType type, int* result){
 			perror("setting FIFO to blocking");
 			return false;
 		}
+
+		fcntl(result[0], F_GETFD, 0);
+		dbg("flags are %x", flags);*/
 		
 		return true;		
 	}
